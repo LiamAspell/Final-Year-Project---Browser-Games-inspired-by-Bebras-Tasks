@@ -1,0 +1,20 @@
+# Automatically generated file. Please do not edit.
+CACHE_IMAGES = (
+    'BlueStarBauble.svg',
+    'BrownBauble.svg',
+    'CyanBauble.svg',
+    'CyanSpikyBauble.svg',
+    'DarkYellowBauble.svg',
+    'Decorated Tree.svg',
+    'DiamondPatternBauble.svg',
+    'GreenHollyBauble.svg',
+    'GreenTreeBauble.svg',
+    'PurpleBauble.svg',
+    'RedSpikyBauble.svg',
+    'RedTreeBauble.svg',
+    'VioletBauble.svg',
+    'YellowBauble.svg',
+    'a.svg',
+    'emptytree.png',
+    'tree.svg',
+    )

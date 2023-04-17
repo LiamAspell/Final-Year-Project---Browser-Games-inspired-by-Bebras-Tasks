@@ -1,0 +1,282 @@
+"""
+Game logic for clearingsnow.
+
+Uses the CTGames framework.
+
+Designed to be imported and run on the command line, imported into a
+server-side flask application, imported by a mobile app (using Kivy),
+and imported by a web app (using Brython).
+
+Tested with recent versions of Python, Brython, and Firefox, on a recent
+LTS version of Ubuntu, as of the date shown below.
+"""
+
+# Standard library
+import copy
+import random
+from collections import namedtuple
+from random import seed
+from time import time
+
+# CTGames framework
+from ctgames.common import AnswerType
+from ctgames.ctgamestypes import GameState, ProcessedInput
+
+from .roads import fives, fours, sixes
+
+__version__ = '0.0.1'
+__date__ = '2022.12.07'
+__copyright__ = 'Copyright 2023, Thomas J. Naughton'
+__credits__ = ['Liam Aspell', 'Thomas J. Naughton']
+__license__ = 'Proprietary'
+__contact__ = 'Thomas J. Naughton'
+__email__ = 'tomn@cs.nuim.ie'
+__status__ = 'Development'  # 'Prototype', 'Development', or 'Production'
+__about__ = (
+    'Written as part of the Maynooth University PACT initiative to '
+    'teach computer science/computational thinking to schoolchildren. '
+    'For further information go to https://pact.cs.nuim.ie .'
+    )
+#
+# Module-level names specific to this game
+#
+
+#
+# Module-level names present in all games
+#
+
+SublevelBehaviour = namedtuple('SublevelBehaviour', ('arenaSize',))
+SublevelBehaviour.__doc__ += (
+    ': NamedTuple: The complete description of the behaviour of a '
+    'sublevel in the game.'
+    )
+SublevelBehaviour.arenaSize.__doc__ = """A positive int that specifies the
+    length x width of the arena. E.g arenaSize = 3 -> 3x3 Arena """
+
+GameStateCustom = namedtuple('GameStateCustom', ('arena',))
+GameStateCustom.__doc__ += (
+    ': NamedTuple: The game state information specific to this game, '
+    'for a single player.'
+    )
+GameStateCustom.arena.__doc__ = """The list with the roadway which makes up 
+the arena"""
+# Initialise the random number generator with the current time
+seed(int(time()))
+
+
+def create_game_round(round_behaviour: SublevelBehaviour) -> dict:
+    """
+    Method to create a round based on the level the player has reached
+    """
+    # Determine the custom fields, and the correct answer
+    arena, target = _decide_on_problem_instance(round_behaviour)
+    # Construct a dict `updates` of keyword arguments to update the game
+    # state with everything needed for a new game round.
+    custom = GameStateCustom(arena)
+    updates = {
+        'answer_type': AnswerType.String,
+        'targets': [target],  # `targets` is a list of correct answers
+        'custom': custom,
+        }
+
+    return updates
+
+
+# ----------------------------------------------------------------------------
+#
+#   Local functions
+#
+# ----------------------------------------------------------------------------
+
+
+def find_x_y(game_state):
+    """
+    Method to find the start co-ordinates
+
+    Args:
+        game_state : The current state of all elements for a paticular games level
+
+    Returns:
+        i, j : co-ordinates of the starting location
+    """
+
+    length = len(game_state)
+    for i in range(length):
+        for j in range(length):
+            if game_state[i][j] == 'T':
+                return i, j
+
+    return i, j
+
+
+def get_starting_point(game_state):
+    """
+    This method places the starting point 'T' to a random point in the
+    array
+
+    Args:
+        game_state : The current state of all elements for a paticular games
+        level
+
+    Returns:
+        x_coordinate, y_coordinate : respective co-ordinates of starting point
+    """
+
+    arena = len(game_state)
+    while True:
+        x_coordinate = random.randint(0, (arena - 1))
+        y_coordinate = random.randint(0, (arena - 1))
+        if game_state[x_coordinate][y_coordinate] == 'O':
+            game_state[x_coordinate][y_coordinate] = 'T'
+            break
+
+    return x_coordinate, y_coordinate
+
+
+def generate_random_arena(size):
+    """
+    This method generates an random square array 'arena' based on the round
+    behaviour
+
+     Args:
+        size: desired size of the arena, determined by the level of the game
+
+    Returns:
+        random_arena: A randomly selected arena
+    """
+
+    if size == 4:
+        random_arena = copy.deepcopy(fours[random.randint(0, 4)][0])
+
+    elif size == 5:
+        random_arena = copy.deepcopy(fives[random.randint(0, 4)][0])
+
+    elif size == 6:
+        random_arena = copy.deepcopy(sixes[random.randint(0, 3)][0])
+
+    return random_arena
+
+
+def solve_arena(game_arena):
+    """
+    Method to replace every 'O' in the arena with a '_' and returns the
+    string version of the arena, thus getting the correct answer
+
+    Args:
+        game_arena : the arena being tackled in the game
+
+    Returns:
+        solved_arena : the same arena with '_' chars instead of 'O'
+    """
+    solved_arena = game_arena.replace('O', '_')
+
+    return solved_arena
+
+
+def process_input_and_solve_task(
+        game_state, player_input: str, animate: bool
+        ) -> ProcessedInput:
+    """
+    Method which takes the question arena instance, and the users input,
+    simulates the snow being plowed, determines if the entire roadway has
+    been cleared and returns true / false accordingly
+
+    Args:
+        game_state : The current state of all elements for a paticular games
+        level
+        player_input : The input string created from the user inputting
+        directions
+        animate : an unused variable that needs to be passed for this
+        function to work
+
+    Returns:
+        ProcessedInput(player_processed=string) : A message containing on
+        notification to if the users answer is correct or not.
+    """
+
+    boundary = len(game_state.custom.arena) - 1
+    question_arena = game_state.custom.arena.copy()
+    x_position, y_position = find_x_y(question_arena)
+    question_arena[x_position][y_position] = '_'
+
+    for index, char in enumerate(player_input):
+        try:
+            if char == 'W':
+                if 0 <= y_position <= boundary:
+                    y_position -= 1
+                if question_arena[x_position][y_position] == 'O':
+                    question_arena[x_position][y_position] = '_'
+                elif question_arena[x_position][y_position] == 'X':
+                    break
+            if char == 'N':
+                if 0 <= x_position <= boundary:
+                    x_position -= 1
+                if question_arena[x_position][y_position] == 'O':
+                    question_arena[x_position][y_position] = '_'
+                elif question_arena[x_position][y_position] == 'X':
+                    break
+            if char == 'S':
+                if 0 <= x_position <= boundary:
+                    x_position += 1
+                if question_arena[x_position][y_position] == 'O':
+                    question_arena[x_position][y_position] = '_'
+
+                elif question_arena[x_position][y_position] == 'X':
+                    break
+            if char == 'E':
+                if 0 <= y_position <= boundary:
+                    y_position += 1
+                if question_arena[x_position][y_position] == 'O':
+                    question_arena[x_position][y_position] = '_'
+
+                elif question_arena[x_position][y_position] == 'X':
+                    break
+        except IndexError:
+            pass
+
+    # Generating the Arena after user attempts to clear snow
+    string = ""
+    for index, section in enumerate(question_arena):
+        for char in question_arena[index]:
+            string += str(char)
+
+    # Generating string of solved arena -> The Correct Answer
+    arena = game_state.custom.arena.copy()
+    string_arena = ""
+    for index, section in enumerate(arena):
+        for char in arena[index]:
+            string_arena += str(char)
+    solved_arena = solve_arena(string_arena)
+
+    # Determine if the users answer is correct
+    if solved_arena == string:
+        ProcessedInput.player_processed = (
+            "Congratulations, You cleared all the snow"
+            )
+    else:
+        ProcessedInput.player_processed = (
+            "Your solution does not clear all snow"
+            )
+
+    return ProcessedInput(player_processed=string)
+
+
+def _decide_on_problem_instance(round_behaviour: SublevelBehaviour) -> tuple:
+    """
+    Method to retrieve a suitable randomly generated arena, and the
+    corresponding correct result (all snow on roadway clear) and returning
+    these two values as the arena and target respectively
+
+    Args:
+        round_behaviour : behaviour of the game at specific level
+
+    Returns:
+        arena : the arena selected at random to be presented to user
+        target : a string notifying the user they got the correct answer
+    """
+    arena_size = round_behaviour.arenaSize
+    arena = generate_random_arena(arena_size)
+    get_starting_point(arena)
+    target = "Congratulations, You cleared all the snow"
+
+    return arena, target
